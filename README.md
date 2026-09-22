@@ -36,20 +36,33 @@ Then register from a `files`-autoloaded bootstrap:
 
 ```php
 <?php
-// inc/bootstrap.php — listed under autoload.files in composer.json
+// bootstrap/register.php — listed under autoload.files in composer.json
 
-\Novalis\PackageLoader\Registry::instance()->register([
-	'package' => 'acme/widgets',
-	'version' => (string) require __DIR__ . '/../version.php',
-	'root'    => dirname(__DIR__),
-	'psr4'    => ['Acme\\Widgets\\' => 'inc/classes/'],
-	'boot'    => [\Acme\Widgets\App::class, 'init'], // omit for a pure library
-]);
+use Novalis\PackageLoader\Registry;
+
+if (class_exists(Registry::class, false)) {
+	Registry::instance()->register([
+		'package' => 'acme/widgets',
+		'version' => (string) require dirname(__DIR__) . '/version.php',
+		'root'    => dirname(__DIR__),
+		'psr4'    => ['Acme\\Widgets\\' => 'inc/classes/'],
+	]);
+}
 ```
 
-`boot` is optional. Pass a `[class, method]` array (not a closure) when your package needs to
-start itself — the winning copy's callable runs once, on `plugins_loaded` priority 0. Packages
-that are only instantiated by their consumer should omit it.
+Keep this file **outside your PSR-4 root**. A registration file reachable through your own
+package's namespace prefix makes the coordinator resolve a class name back onto it.
+
+### Booting is not this package's job
+
+There is deliberately no boot or init callback. Your package is started by whoever uses it, and
+that already gets the right version: when a consumer calls `\Acme\Widgets\App::init()`, PHP
+resolves that class name through this autoloader, which hands back the newest registered copy.
+Controlling resolution *is* controlling the boot.
+
+The one thing to avoid is touching package classes at plugin-file-load time, before every
+bundling plugin has registered — the first copy to resolve is pinned for the request. Use any
+hook (`plugins_loaded`, `init`, anything later) and all copies will have registered by then.
 
 ### Global functions
 

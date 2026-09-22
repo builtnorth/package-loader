@@ -24,9 +24,8 @@ final class RegistryTest extends TestCase
 	 * Drop anything the monorepo's own packages registered during bootstrap.
 	 *
 	 * The Registry is a process-wide singleton and every real package's
-	 * register.php runs when the test autoloader loads, so boot_all() would
-	 * otherwise try to boot the whole suite's packages — outside WordPress,
-	 * where their boot callables have no add_action() to call.
+	 * register.php runs when the test autoloader loads, so without this a
+	 * test would see the monorepo's real packages alongside its fixtures.
 	 */
 	protected function setUp(): void
 	{
@@ -35,7 +34,7 @@ final class RegistryTest extends TestCase
 		$registry   = Registry::instance();
 		$reflection = new \ReflectionClass($registry);
 
-		foreach (['candidates', 'pinned', 'booted', 'segments'] as $property) {
+		foreach (['candidates', 'pinned', 'segments'] as $property) {
 			$prop = $reflection->getProperty($property);
 			$prop->setAccessible(true);
 			$prop->setValue($registry, []);
@@ -144,28 +143,6 @@ final class RegistryTest extends TestCase
 		$this->assertSame([], Registry::instance()->candidates('acme/demo'));
 	}
 
-	public function test_boot_runs_newest_callable_once(): void
-	{
-		$GLOBALS['novalis_package_loader_test_boots'] = [];
-
-		$this->register('old', self::OLD, ['boot' => [BootSpy::class, 'old']]);
-		$this->register('new', self::NEW, ['boot' => [BootSpy::class, 'new']]);
-
-		Registry::instance()->boot_all();
-		Registry::instance()->boot_all();
-
-		$this->assertSame(['new'], $GLOBALS['novalis_package_loader_test_boots']);
-	}
-
-	public function test_package_without_boot_callable_is_skipped(): void
-	{
-		$this->register('new', self::NEW);
-
-		Registry::instance()->boot_all();
-
-		$this->assertSame(self::NEW, Registry::instance()->version('acme/demo'));
-	}
-
 	public function test_longest_psr4_prefix_wins(): void
 	{
 		Registry::instance()->register([
@@ -182,19 +159,3 @@ final class RegistryTest extends TestCase
 	}
 }
 
-/**
- * Records which copy's boot callable ran. A named class, not a closure —
- * boot callables must survive being stored as [class, method] arrays.
- */
-final class BootSpy
-{
-	public static function old(): void
-	{
-		$GLOBALS['novalis_package_loader_test_boots'][] = 'old';
-	}
-
-	public static function new(): void
-	{
-		$GLOBALS['novalis_package_loader_test_boots'][] = 'new';
-	}
-}

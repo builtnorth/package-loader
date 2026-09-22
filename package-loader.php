@@ -42,7 +42,7 @@ if (! class_exists('Novalis\PackageLoader\Registry', false)) {
 		/**
 		 * Registered candidates, keyed by package name.
 		 *
-		 * @var array<string, list<array{version: string, root: string, psr4: array<string, string>, boot: callable-string|array{0: string, 1: string}|null}>>
+		 * @var array<string, list<array{version: string, root: string, psr4: array<string, string>}>>
 		 */
 		private array $candidates = [];
 
@@ -54,13 +54,6 @@ if (! class_exists('Novalis\PackageLoader\Registry', false)) {
 		private array $pinned = [];
 
 		/**
-		 * Packages whose boot callable has already run.
-		 *
-		 * @var array<string, true>
-		 */
-		private array $booted = [];
-
-		/**
 		 * First namespace segment => package names declaring a prefix under it.
 		 *
 		 * Keeps autoload() to a single array lookup for the overwhelmingly
@@ -69,8 +62,6 @@ if (! class_exists('Novalis\PackageLoader\Registry', false)) {
 		 * @var array<string, array<string, true>>
 		 */
 		private array $segments = [];
-
-		private bool $installed = false;
 
 		private function __construct()
 		{
@@ -87,7 +78,7 @@ if (! class_exists('Novalis\PackageLoader\Registry', false)) {
 		 * Called from each participating package's own `files` bootstrap, so it
 		 * runs eagerly at vendor/autoload.php time with no hook involved.
 		 *
-		 * @param array{package: string, version: string, root: string, psr4?: array<string, string>, boot?: callable-string|array{0: string, 1: string}|null} $args
+		 * @param array{package: string, version: string, root: string, psr4?: array<string, string>} $args
 		 */
 		public function register(array $args): void
 		{
@@ -102,7 +93,6 @@ if (! class_exists('Novalis\PackageLoader\Registry', false)) {
 				'version' => (string) ($args['version'] ?? '0.0.0'),
 				'root'    => rtrim($root, '/\\'),
 				'psr4'    => $args['psr4'] ?? [],
-				'boot'    => $args['boot'] ?? null,
 			];
 
 			foreach (array_keys($args['psr4'] ?? []) as $prefix) {
@@ -116,45 +106,18 @@ if (! class_exists('Novalis\PackageLoader\Registry', false)) {
 			// bundler arriving after us would otherwise sit ahead in the SPL
 			// chain and resolve our namespaces itself.
 			$this->install();
-
-			// A theme (or anything else loading after plugins_loaded has already
-			// fired) never gets the scheduled boot pass — add_action() on a
-			// completed hook silently never runs. Boot it now instead, unless a
-			// plugin already booted this package. Mirrors action-scheduler.php's
-			// did_action/doing_action fallback.
-			if (
-				function_exists('did_action')
-				&& did_action('plugins_loaded')
-				&& ! doing_action('plugins_loaded')
-			) {
-				$this->boot_package($package);
-			}
 		}
 
 		/**
-		 * Put this Registry's autoloader at the front of the SPL chain and
-		 * schedule the boot pass. Safe to call repeatedly.
+		 * Put this Registry's autoloader at the front of the SPL chain.
 		 *
-		 * WordPress's plugin API is always available by the time this runs: a
-		 * plugin requires its own vendor/autoload.php from its plugin file,
-		 * which WordPress loads long after defining add_action(). (The monorepo
-		 * shares one root autoloader that runs at wp-config time instead, so it
-		 * loads wp-includes/plugin.php early to match — see wp-config.php.)
+		 * Safe to call repeatedly — every register() does, because composer
+		 * prepends each bundling plugin's own ClassLoader as it loads.
 		 */
 		public function install(): void
 		{
 			spl_autoload_unregister([$this, 'autoload']);
 			spl_autoload_register([$this, 'autoload'], true, true);
-
-			if ($this->installed) {
-				return;
-			}
-
-			$this->installed = true;
-
-			if (function_exists('add_action')) {
-				add_action('plugins_loaded', [$this, 'boot_all'], 0);
-			}
 		}
 
 		/**
@@ -210,17 +173,6 @@ if (! class_exists('Novalis\PackageLoader\Registry', false)) {
 		}
 
 		/**
-		 * Boot every registered package that asked for one. Runs once, on
-		 * plugins_loaded priority 0.
-		 */
-		public function boot_all(): void
-		{
-			foreach (array_keys($this->candidates) as $package) {
-				$this->boot_package($package);
-			}
-		}
-
-		/**
 		 * Version of a package that actually won this request, or null if it
 		 * has not been resolved yet.
 		 */
@@ -251,31 +203,11 @@ if (! class_exists('Novalis\PackageLoader\Registry', false)) {
 			return $out;
 		}
 
-		private function boot_package(string $package): void
-		{
-			if (isset($this->booted[$package])) {
-				return;
-			}
-
-			$winner = $this->winner($package);
-
-			if (null === $winner || null === $winner['boot']) {
-				return;
-			}
-
-			$this->booted[$package] = true;
-			$this->pinned[$package] = $winner['version'];
-
-			if (is_callable($winner['boot'])) {
-				($winner['boot'])();
-			}
-		}
-
 		/**
 		 * Highest registered version of a package — unless one is already
 		 * pinned, in which case the pin holds for the rest of the request.
 		 *
-		 * @return array{version: string, root: string, psr4: array<string, string>, boot: callable-string|array{0: string, 1: string}|null}|null
+		 * @return array{version: string, root: string, psr4: array<string, string>}|null
 		 */
 		private function winner(string $package): ?array
 		{
