@@ -102,6 +102,17 @@ final class RegistryTest extends TestCase
 
 		$this->assertSame('old', \Acme\Demo\Widget::which());
 		$this->assertSame(self::OLD, Registry::instance()->version('acme/demo'));
+
+		// The assertion above cannot fail on its own: PHP will not reload an
+		// already-declared class, so Widget::which() reports 'old' whether or
+		// not pinning works. OnlyInNew exists solely in the 2.0.0 fixture, so
+		// resolving it is the only way to observe which copy the registry would
+		// pick *now* — and under a correct pin it must refuse, rather than
+		// quietly mixing a 2.0.0 class into a request already running 1.0.0.
+		$this->assertFalse(
+			class_exists(\Acme\Demo\OnlyInNew::class),
+			'a pinned package must not resolve classes from a different copy'
+		);
 	}
 
 	public function test_version_reports_winner_before_any_class_loads(): void
