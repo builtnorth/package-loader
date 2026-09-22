@@ -1,0 +1,46 @@
+# Various things
+.sass-cache
+node_modules
+.ftppass
+sftpCache.json
+bower_components
+.DS_Store
+bin/tasks
+_srcMaps/
+
+# Exclude composer dependencies in the vendor directory
+/vendor
+composer.lock
+
+# Test / coverage artifacts
+coverage
+.phpunit.result.cache
+
+# Log files
+*.log
+
+# Project Files
+dist
+backstop_data
+
+# Editors
+*.esproj
+*.tmproj
+*.tmproject
+tmtags
+.*.sw[a-z]
+*.un~
+Session.vim
+*.swp
+.vscode
+
+# Mac OSX
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Desktop.ini
+/debug.log

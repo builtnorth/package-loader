@@ -1,0 +1,308 @@
+<?php
+/**
+ * Novalis Package Loader — version coordinator for bundled packages.
+ *
+ * Loaded eagerly via composer's `files` autoload, so every plugin that vendors
+ * a participating package runs this with no action on the plugin author's part.
+ * Several copies of this file will run in one request; the first one to do so
+ * declares the Registry and the rest defer to it.
+ *
+ * @package Novalis\PackageLoader
+ */
+
+declare(strict_types=1);
+
+namespace Novalis\PackageLoader;
+
+// Autoloading is deliberately disabled on this check. By the time a second
+// copy's `files` entry runs, another copy's PSR-4 rules may already be
+// registered, and an autoloading class_exists() would resolve Registry through
+// them — declaring nothing here while leaving the winner ambiguous. The same
+// form action-scheduler.php uses for ActionScheduler_Versions.
+if (! class_exists('Novalis\PackageLoader\Registry', false)) {
+	/**
+	 * Resolves which bundled copy of a shared package a request should use.
+	 *
+	 * First copy loaded declares this class and owns coordination for the
+	 * request. That makes the public surface permanent: it can never be
+	 * replaced by a newer copy, because the newer copy's declaration is
+	 * skipped. Treat every method below as frozen — additive changes only,
+	 * and anything incompatible ships as a new class name.
+	 */
+	final class Registry
+	{
+		/**
+		 * Public surface version, for packages that need to detect a Registry
+		 * older than the features they rely on and fall back gracefully.
+		 */
+		public const API_VERSION = 1;
+
+		private static ?Registry $instance = null;
+
+		/**
+		 * Registered candidates, keyed by package name.
+		 *
+		 * @var array<string, list<array{version: string, root: string, psr4: array<string, string>, boot: callable-string|array{0: string, 1: string}|null}>>
+		 */
+		private array $candidates = [];
+
+		/**
+		 * Package name => version string, once a class has actually loaded.
+		 *
+		 * @var array<string, string>
+		 */
+		private array $pinned = [];
+
+		/**
+		 * Packages whose boot callable has already run.
+		 *
+		 * @var array<string, true>
+		 */
+		private array $booted = [];
+
+		/**
+		 * First namespace segment => package names declaring a prefix under it.
+		 *
+		 * Keeps autoload() to a single array lookup for the overwhelmingly
+		 * common case of a class that belongs to nobody here.
+		 *
+		 * @var array<string, array<string, true>>
+		 */
+		private array $segments = [];
+
+		private bool $installed = false;
+
+		private function __construct()
+		{
+		}
+
+		public static function instance(): Registry
+		{
+			return self::$instance ??= new self();
+		}
+
+		/**
+		 * Register this copy of a package as a candidate.
+		 *
+		 * Called from each participating package's own `files` bootstrap, so it
+		 * runs eagerly at vendor/autoload.php time with no hook involved.
+		 *
+		 * @param array{package: string, version: string, root: string, psr4?: array<string, string>, boot?: callable-string|array{0: string, 1: string}|null} $args
+		 */
+		public function register(array $args): void
+		{
+			$package = $args['package'] ?? '';
+			$root    = $args['root'] ?? '';
+
+			if ('' === $package || '' === $root) {
+				return;
+			}
+
+			$this->candidates[$package][] = [
+				'version' => (string) ($args['version'] ?? '0.0.0'),
+				'root'    => rtrim($root, '/\\'),
+				'psr4'    => $args['psr4'] ?? [],
+				'boot'    => $args['boot'] ?? null,
+			];
+
+			foreach (array_keys($args['psr4'] ?? []) as $prefix) {
+				$segment = strstr($prefix, '\\', true);
+				if (false !== $segment) {
+					$this->segments[$segment][$package] = true;
+				}
+			}
+
+			// Composer prepends each plugin's ClassLoader as it loads, so a
+			// bundler arriving after us would otherwise sit ahead in the SPL
+			// chain and resolve our namespaces itself.
+			$this->install();
+
+			// A theme (or anything else loading after plugins_loaded has already
+			// fired) never gets the scheduled boot pass — add_action() on a
+			// completed hook silently never runs. Boot it now instead, unless a
+			// plugin already booted this package. Mirrors action-scheduler.php's
+			// did_action/doing_action fallback.
+			if (
+				function_exists('did_action')
+				&& did_action('plugins_loaded')
+				&& ! doing_action('plugins_loaded')
+			) {
+				$this->boot_package($package);
+			}
+		}
+
+		/**
+		 * Put this Registry's autoloader at the front of the SPL chain and
+		 * schedule the boot pass. Safe to call repeatedly.
+		 */
+		public function install(): void
+		{
+			spl_autoload_unregister([$this, 'autoload']);
+			spl_autoload_register([$this, 'autoload'], true, true);
+
+			if ($this->installed) {
+				return;
+			}
+
+			$this->installed = true;
+
+			if (function_exists('add_action')) {
+				add_action('plugins_loaded', [$this, 'boot_all'], 0);
+			}
+		}
+
+		/**
+		 * Resolve a class from the newest registered copy that declares it.
+		 */
+		public function autoload(string $class): void
+		{
+			$segment = strstr($class, '\\', true);
+
+			if (false === $segment || ! isset($this->segments[$segment])) {
+				return;
+			}
+
+			foreach (array_keys($this->segments[$segment]) as $package) {
+				$winner = $this->winner($package);
+
+				if (null === $winner) {
+					continue;
+				}
+
+				// Longest prefix wins, so a package declaring both Foo\ and
+				// Foo\Bar\ maps Foo\Bar\Baz through the more specific one.
+				$best_prefix = '';
+				$best_dir    = '';
+
+				foreach ($winner['psr4'] as $prefix => $dir) {
+					if (
+						strlen($prefix) > strlen($best_prefix)
+						&& str_starts_with($class, $prefix)
+					) {
+						$best_prefix = $prefix;
+						$best_dir    = $dir;
+					}
+				}
+
+				if ('' === $best_prefix) {
+					continue;
+				}
+
+				$relative = substr($class, strlen($best_prefix));
+				$file     = $winner['root'] . '/' . trim($best_dir, '/\\') . '/'
+					. str_replace('\\', '/', $relative) . '.php';
+
+				if (is_file($file)) {
+					// Pin before the require: anything the loaded file pulls in
+					// must resolve against this same copy.
+					$this->pinned[$package] = $winner['version'];
+					require $file;
+
+					return;
+				}
+			}
+		}
+
+		/**
+		 * Boot every registered package that asked for one. Runs once, on
+		 * plugins_loaded priority 0.
+		 */
+		public function boot_all(): void
+		{
+			foreach (array_keys($this->candidates) as $package) {
+				$this->boot_package($package);
+			}
+		}
+
+		/**
+		 * Version of a package that actually won this request, or null if it
+		 * has not been resolved yet.
+		 */
+		public function version(string $package): ?string
+		{
+			if (isset($this->pinned[$package])) {
+				return $this->pinned[$package];
+			}
+
+			$winner = $this->winner($package);
+
+			return $winner['version'] ?? null;
+		}
+
+		/**
+		 * Every version registered for a package, for diagnostics.
+		 *
+		 * @return array<string, string> Root path => version.
+		 */
+		public function candidates(string $package): array
+		{
+			$out = [];
+
+			foreach ($this->candidates[$package] ?? [] as $candidate) {
+				$out[$candidate['root']] = $candidate['version'];
+			}
+
+			return $out;
+		}
+
+		private function boot_package(string $package): void
+		{
+			if (isset($this->booted[$package])) {
+				return;
+			}
+
+			$winner = $this->winner($package);
+
+			if (null === $winner || null === $winner['boot']) {
+				return;
+			}
+
+			$this->booted[$package] = true;
+			$this->pinned[$package] = $winner['version'];
+
+			if (is_callable($winner['boot'])) {
+				($winner['boot'])();
+			}
+		}
+
+		/**
+		 * Highest registered version of a package — unless one is already
+		 * pinned, in which case the pin holds for the rest of the request.
+		 *
+		 * @return array{version: string, root: string, psr4: array<string, string>, boot: callable-string|array{0: string, 1: string}|null}|null
+		 */
+		private function winner(string $package): ?array
+		{
+			$candidates = $this->candidates[$package] ?? [];
+
+			if ([] === $candidates) {
+				return null;
+			}
+
+			$pin   = $this->pinned[$package] ?? null;
+			$best  = null;
+
+			foreach ($candidates as $candidate) {
+				// Mixing two copies' classes in one request is worse than
+				// running an older copy consistently, so once a class has
+				// loaded the version is fixed even if a newer copy registers
+				// afterwards.
+				if (null !== $pin) {
+					if ($candidate['version'] === $pin) {
+						return $candidate;
+					}
+
+					continue;
+				}
+
+				if (null === $best || version_compare($candidate['version'], $best['version'], '>')) {
+					$best = $candidate;
+				}
+			}
+
+			return $best;
+		}
+	}
+
+	Registry::instance()->install();
+}
