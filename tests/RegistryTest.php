@@ -35,7 +35,7 @@ final class RegistryTest extends TestCase
 		$registry   = Registry::instance();
 		$reflection = new \ReflectionClass($registry);
 
-		foreach (['candidates', 'pinned', 'booted', 'segments', 'pending_wp'] as $property) {
+		foreach (['candidates', 'pinned', 'booted', 'segments'] as $property) {
 			$prop = $reflection->getProperty($property);
 			$prop->setAccessible(true);
 			$prop->setValue($registry, []);
@@ -164,58 +164,6 @@ final class RegistryTest extends TestCase
 		Registry::instance()->boot_all();
 
 		$this->assertSame(self::NEW, Registry::instance()->version('acme/demo'));
-	}
-
-	public function test_wordpress_ready_queues_callback_while_plugin_api_is_absent(): void
-	{
-		// These run in separate processes with no WordPress loaded, which is
-		// exactly composer's autoload window: add_action() does not exist yet.
-		$this->assertFalse(function_exists('add_action'), 'precondition: no plugin API');
-
-		$ran = false;
-
-		Registry::instance()->on_wordpress_ready(static function () use (&$ran): void {
-			$ran = true;
-		});
-
-		$this->assertFalse($ran, 'callback must be queued, not run before WordPress exists');
-	}
-
-	public function test_wordpress_ready_runs_immediately_when_plugin_api_already_exists(): void
-	{
-		// The other branch: a package registering after WordPress is up — a
-		// theme's vendor tree, or WP-CLI reaching a package post-boot.
-		if (! function_exists('add_action')) {
-			eval('function add_action($hook, $callback, $priority = 10, $args = 1) { return true; }');
-		}
-
-		$ran = false;
-
-		Registry::instance()->on_wordpress_ready(static function () use (&$ran): void {
-			$ran = true;
-		});
-
-		$this->assertTrue($ran, 'callback must run immediately, not wait for a drain that never comes');
-	}
-
-	public function test_wordpress_ready_callback_fires_once_the_plugin_api_appears(): void
-	{
-		$ran = false;
-
-		Registry::instance()->on_wordpress_ready(static function () use (&$ran): void {
-			$ran = true;
-		});
-
-		$this->assertFalse($ran, 'precondition: still queued');
-
-		// WordPress defining its plugin API is what the shim is waiting for.
-		if (! function_exists('add_action')) {
-			eval('function add_action($hook, $callback, $priority = 10, $args = 1) { return true; }');
-		}
-
-		Registry::instance()->drain_pending_wp('Any\\Class\\Name');
-
-		$this->assertTrue($ran, 'drain must flush queued callbacks once add_action exists');
 	}
 
 	public function test_longest_psr4_prefix_wins(): void
