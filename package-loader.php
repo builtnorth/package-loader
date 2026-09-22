@@ -132,6 +132,15 @@ if (! class_exists('Novalis\PackageLoader\Registry', false)) {
 		}
 
 		/**
+		 * Callbacks waiting for WordPress's plugin API to exist.
+		 *
+		 * @var list<callable>
+		 */
+		private array $pending_wp = [];
+
+		private bool $wp_watcher_installed = false;
+
+		/**
 		 * Put this Registry's autoloader at the front of the SPL chain and
 		 * schedule the boot pass. Safe to call repeatedly.
 		 */
@@ -146,8 +155,67 @@ if (! class_exists('Novalis\PackageLoader\Registry', false)) {
 
 			$this->installed = true;
 
-			if (function_exists('add_action')) {
+			$this->on_wordpress_ready(function (): void {
 				add_action('plugins_loaded', [$this, 'boot_all'], 0);
+			});
+		}
+
+		/**
+		 * Run a callback once WordPress's plugin API is available.
+		 *
+		 * Every registration here happens during composer's autoload, which
+		 * runs from wp-config.php — before WordPress has defined add_action().
+		 * A naive `if (function_exists('add_action'))` at that point is always
+		 * false, so anything guarded by one silently never runs.
+		 *
+		 * When the API is already up (a late manual require, WP-CLI reaching a
+		 * package after boot) the callback fires immediately. Otherwise it is
+		 * queued and drained by a shutdown-safe spl_autoload shim: the first
+		 * class WordPress itself autoloads after plugin API definition triggers
+		 * the drain, which is comfortably before muplugins_loaded.
+		 *
+		 * @param callable $callback Invoked exactly once, with no arguments.
+		 */
+		public function on_wordpress_ready(callable $callback): void
+		{
+			if (function_exists('add_action')) {
+				$callback();
+
+				return;
+			}
+
+			$this->pending_wp[] = $callback;
+
+			if ($this->wp_watcher_installed) {
+				return;
+			}
+
+			$this->wp_watcher_installed = true;
+
+			// Appended, not prepended: this is a watcher, not a resolver, and
+			// must not sit ahead of the real autoloaders in the chain.
+			spl_autoload_register([$this, 'drain_pending_wp'], true, false);
+		}
+
+		/**
+		 * Flush callbacks queued before WordPress's plugin API existed.
+		 *
+		 * Registered as an autoloader purely to get called repeatedly during
+		 * startup; it never resolves a class.
+		 */
+		public function drain_pending_wp(string $class): void
+		{
+			if ([] === $this->pending_wp || ! function_exists('add_action')) {
+				return;
+			}
+
+			$callbacks        = $this->pending_wp;
+			$this->pending_wp = [];
+
+			spl_autoload_unregister([$this, 'drain_pending_wp']);
+
+			foreach ($callbacks as $callback) {
+				$callback();
 			}
 		}
 
