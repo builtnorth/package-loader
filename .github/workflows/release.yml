@@ -1,0 +1,30 @@
+name: Release
+
+on:
+    push:
+        tags:
+            - "v*.*.*"
+    workflow_dispatch:
+        inputs:
+            version:
+                description: "Release version (e.g., 1.0.0)"
+                required: true
+                type: string
+            prerelease:
+                description: "Is this a pre-release?"
+                required: false
+                type: boolean
+                default: false
+
+jobs:
+    release:
+        uses: builtnorth/.github/.github/workflows/composer-package-release.yml@main
+        with:
+            package-name: "package-loader"
+            package-display-name: "Package Loader"
+            composer-namespace: "novalis/package-loader"
+            version: ${{ inputs.version }}
+            prerelease: ${{ inputs.prerelease }}
+        permissions:
+            contents: write
+        secrets: inherit
