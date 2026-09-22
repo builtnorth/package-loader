@@ -36,21 +36,21 @@ Then register from a `files`-autoloaded bootstrap:
 
 ```php
 <?php
-// bootstrap/register.php — listed under autoload.files in composer.json
+// register.php — listed under autoload.files in composer.json
 
 use Novalis\PackageLoader\Registry;
 
 if (class_exists(Registry::class, false)) {
 	Registry::instance()->register([
 		'package' => 'acme/widgets',
-		'version' => (string) require dirname(__DIR__) . '/version.php',
-		'root'    => dirname(__DIR__),
+		'version' => (string) require __DIR__ . '/version.php',
+		'root'    => __DIR__,
 		'psr4'    => ['Acme\\Widgets\\' => 'inc/classes/'],
 	]);
 }
 ```
 
-Keep this file **outside your PSR-4 root**. A registration file reachable through your own
+Keep this file at your package root, **outside your PSR-4 root**. A registration file reachable through your own
 package's namespace prefix makes the coordinator resolve a class name back onto it.
 
 ### Booting is not this package's job

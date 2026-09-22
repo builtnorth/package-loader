@@ -2,7 +2,7 @@
     "name": "novalis/package-loader",
     "description": "Version coordinator for bundled WordPress packages. Ensures the newest copy of a shared package wins when several plugins vendor their own.",
     "type": "library",
-    "license": "MIT",
+    "license": "GPL-2.0-or-later",
     "authors": [
         {
             "name": "Built North",
