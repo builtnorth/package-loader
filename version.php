@@ -8,4 +8,4 @@
  * @package Novalis\PackageLoader
  */
 
-return '1.0.0';
+return '0.1.0';
