@@ -7,19 +7,19 @@
  * Several copies of this file will run in one request; the first one to do so
  * declares the Registry and the rest defer to it.
  *
- * @package Novalis\PackageLoader
+ * @package Navas\PackageLoader
  */
 
 declare(strict_types=1);
 
-namespace Novalis\PackageLoader;
+namespace Navas\PackageLoader;
 
 // Autoloading is deliberately disabled on this check. By the time a second
 // copy's `files` entry runs, another copy's PSR-4 rules may already be
 // registered, and an autoloading class_exists() would resolve Registry through
 // them — declaring nothing here while leaving the winner ambiguous. The same
 // form action-scheduler.php uses for ActionScheduler_Versions.
-if (! class_exists('Novalis\PackageLoader\Registry', false)) {
+if (! class_exists('Navas\PackageLoader\Registry', false)) {
 	/**
 	 * Resolves which bundled copy of a shared package a request should use.
 	 *

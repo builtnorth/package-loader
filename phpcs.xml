@@ -16,8 +16,8 @@
 	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
 		<properties>
 			<property name="prefixes" type="array">
-				<element value="novalis_package_loader_"/>
-				<element value="Novalis\PackageLoader"/>
+				<element value="navas_package_loader_"/>
+				<element value="Navas\PackageLoader"/>
 			</property>
 		</properties>
 	</rule>

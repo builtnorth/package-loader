@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Novalis\PackageLoader\Tests;
+namespace Navas\PackageLoader\Tests;
 
-use Novalis\PackageLoader\Registry;
+use Navas\PackageLoader\Registry;
 use PHPUnit\Framework\TestCase;
 
 /**

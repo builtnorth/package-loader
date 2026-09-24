@@ -9,7 +9,7 @@ declare(strict_types=1);
  * function_exists()-guarded calls, so these tests need no WP_Mock and no core
  * stand-ins — just the class itself and PHPUnit.
  *
- * @package Novalis\PackageLoader
+ * @package Navas\PackageLoader
  */
 
 // Falls back to the monorepo root's autoloader when this package has no
@@ -33,7 +33,7 @@ require $autoload;
 // by hand when running under the root autoloader.
 if ($using_root_autoloader) {
 	spl_autoload_register(static function (string $class): void {
-		$prefix = 'Novalis\\PackageLoader\\Tests\\';
+		$prefix = 'Navas\\PackageLoader\\Tests\\';
 		if (! str_starts_with($class, $prefix)) {
 			return;
 		}

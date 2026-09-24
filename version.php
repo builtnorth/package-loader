@@ -5,7 +5,7 @@
  * Readable via a bare require before any autoloader is involved — that is the
  * whole point. Written by the release workflow's version-bump step.
  *
- * @package Novalis\PackageLoader
+ * @package Navas\PackageLoader
  */
 
 return '0.1.0';

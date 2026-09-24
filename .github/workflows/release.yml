@@ -22,7 +22,7 @@ jobs:
         with:
             package-name: "package-loader"
             package-display-name: "Package Loader"
-            composer-namespace: "novalis/package-loader"
+            composer-namespace: "navas/package-loader"
             version: ${{ inputs.version }}
             prerelease: ${{ inputs.prerelease }}
         permissions:

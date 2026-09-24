@@ -1,5 +1,5 @@
 {
-    "name": "novalis/package-loader",
+    "name": "navas/package-loader",
     "description": "Version coordinator for bundled WordPress packages. Ensures the newest copy of a shared package wins when several plugins vendor their own.",
     "type": "library",
     "license": "GPL-2.0-or-later",
@@ -24,7 +24,7 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Novalis\\PackageLoader\\Tests\\": "tests/"
+            "Navas\\PackageLoader\\Tests\\": "tests/"
         }
     },
     "scripts": {

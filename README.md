@@ -14,7 +14,7 @@ Plugin authors cannot coordinate with each other, and they shouldn't have to.
 
 ## What this does
 
-Packages that depend on `novalis/package-loader` get a shared registry. Each bundled copy
+Packages that depend on `navas/package-loader` get a shared registry. Each bundled copy
 registers itself with its version; the registry puts its own autoloader at the front of the SPL
 chain and resolves classes from the **newest registered copy**, regardless of load order.
 
@@ -38,7 +38,7 @@ Then register from a `files`-autoloaded bootstrap:
 <?php
 // register.php — listed under autoload.files in composer.json
 
-use Novalis\PackageLoader\Registry;
+use Navas\PackageLoader\Registry;
 
 if (class_exists(Registry::class, false)) {
 	Registry::instance()->register([
@@ -84,7 +84,7 @@ error the moment a second plugin bundles your package.
 ## Diagnostics
 
 ```php
-$registry = \Novalis\PackageLoader\Registry::instance();
+$registry = \Navas\PackageLoader\Registry::instance();
 
 $registry->version('acme/widgets');     // version that won this request
 $registry->candidates('acme/widgets');  // every registered copy: root path => version
