@@ -166,6 +166,17 @@ final class RegistryTest extends TestCase
 		$this->assertSame('new', \Acme\Demo\Widget::which());
 	}
 
+	public function test_class_loads_never_call_did_action(): void
+	{
+		// A WP_Mock suite stubbing did_action() for its own hooks throws on
+		// any other call, so the registry reads $wp_actions instead.
+		eval('function did_action($hook) { throw new \\LogicException("did_action($hook) called"); }');
+
+		$this->register('new', self::NEW);
+
+		$this->assertSame('new', \Acme\Demo\Widget::which());
+	}
+
 	public function test_longest_psr4_prefix_wins(): void
 	{
 		Registry::instance()->register([

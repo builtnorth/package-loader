@@ -8,18 +8,13 @@
  * plugin or theme main file would), `plugins_loaded` (WordPress fires that
  * action), or `use` (code touches Acme\Widgets\Widget).
  *
- * did_action() and _doing_it_wrong() stand in for WordPress's own.
+ * $wp_actions and _doing_it_wrong() stand in for WordPress's own.
  */
 
 declare(strict_types=1);
 
-$GLOBALS['fixture_fired']   = [];
+$GLOBALS['wp_actions']      = [];
 $GLOBALS['fixture_notices'] = [];
-
-function did_action(string $hook): int
-{
-	return $GLOBALS['fixture_fired'][$hook] ?? 0;
-}
 
 function _doing_it_wrong(string $function_name, string $message, string $version): void
 {
@@ -30,7 +25,7 @@ $workspace = $argv[1];
 
 foreach (array_slice($argv, 2) as $step) {
 	if ($step === 'plugins_loaded') {
-		$GLOBALS['fixture_fired']['plugins_loaded'] = 1;
+		$GLOBALS['wp_actions']['plugins_loaded'] = 1;
 		continue;
 	}
 

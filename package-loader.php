@@ -275,10 +275,23 @@ if (! class_exists('Navas\PackageLoader\Registry', false)) {
 		/**
 		 * Whether WordPress has fired plugins_loaded, i.e. every plugin's copy
 		 * has registered. False outside WordPress (plain PHPUnit, wp-config).
+		 *
+		 * Reads did_action()'s own global rather than calling it: this runs on
+		 * every class load, and a test suite stubbing did_action() for its own
+		 * hooks would otherwise see an unexpected call.
 		 */
 		private static function plugins_loaded(): bool
 		{
-			return function_exists('did_action') && did_action('plugins_loaded') > 0;
+			return ! empty($GLOBALS['wp_actions']['plugins_loaded']);
+		}
+
+		/**
+		 * Whether WordPress's hook API is loaded, so an early class load is a
+		 * plugin file doing it rather than a unit test or wp-config.
+		 */
+		private static function wordpress_loading(): bool
+		{
+			return isset($GLOBALS['wp_actions']) && function_exists('_doing_it_wrong');
 		}
 
 		/**
@@ -288,7 +301,7 @@ if (! class_exists('Navas\PackageLoader\Registry', false)) {
 		 */
 		private static function report_early_use(string $class, string $package, string $version): void
 		{
-			if (! function_exists('_doing_it_wrong')) {
+			if (! self::wordpress_loading()) {
 				return;
 			}
 
