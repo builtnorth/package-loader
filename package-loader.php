@@ -105,7 +105,7 @@ if (! class_exists('Navas\PackageLoader\Registry', false)) {
 			// ignored below: its ClassLoader is in the chain either way.
 			$this->install();
 
-			$version = (string) ($args['version'] ?? '0.0.0');
+			$version = self::normalize_version((string) ($args['version'] ?? ''));
 
 			foreach ($this->candidates[$package] ?? [] as $candidate) {
 				// The same copy twice, or another copy of the same version.
@@ -302,6 +302,21 @@ if (! class_exists('Navas\PackageLoader\Registry', false)) {
 				),
 				'0.1.0'
 			);
+		}
+
+		/**
+		 * `v1.2` and `1.2.0` compare as equal; anything else is left to
+		 * version_compare() as given.
+		 */
+		private static function normalize_version(string $version): string
+		{
+			$version = ltrim(trim($version), 'vV');
+
+			if (1 === preg_match('/^(\d+)(?:\.(\d+))?$/', $version, $parts)) {
+				return $parts[1] . '.' . ($parts[2] ?? '0') . '.0';
+			}
+
+			return '' === $version ? '0.0.0' : $version;
 		}
 	}
 

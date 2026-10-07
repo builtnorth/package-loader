@@ -154,6 +154,18 @@ final class RegistryTest extends TestCase
 		$this->assertSame([], Registry::instance()->candidates('acme/demo'));
 	}
 
+	public function test_short_and_v_prefixed_versions_compare_as_full_versions(): void
+	{
+		$this->register('old', '1.0');
+		$this->register('new', 'v2');
+
+		$this->assertSame([
+			$this->fixtures() . '/old' => '1.0.0',
+			$this->fixtures() . '/new' => '2.0.0',
+		], Registry::instance()->candidates('acme/demo'));
+		$this->assertSame('new', \Acme\Demo\Widget::which());
+	}
+
 	public function test_longest_psr4_prefix_wins(): void
 	{
 		Registry::instance()->register([
