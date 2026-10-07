@@ -1,4 +1,4 @@
-# Novalis Package Loader
+# Navas Package Loader
 
 Version coordinator for WordPress packages that get bundled by more than one plugin.
 
@@ -17,6 +17,18 @@ Plugin authors cannot coordinate with each other, and they shouldn't have to.
 Packages that depend on `navas/package-loader` get a shared registry. Each bundled copy
 registers itself with its version; the registry puts its own autoloader at the front of the SPL
 chain and resolves classes from the **newest registered copy**, regardless of load order.
+
+It follows Action Scheduler's model (`ActionScheduler_Versions`):
+
+- **Every copy registers.** Composer runs a `files` entry once per id, and the id
+  (`md5("<package>:register.php")`) is the same in every plugin's `vendor/`. The registry clears
+  that id on each registration, so the next plugin's copy runs too.
+- **The newest wins once `plugins_loaded` fires.** By then every plugin file, and so every
+  bundled copy, has loaded. A class loaded earlier locks its package to the newest copy registered
+  so far, and the registry reports it through `_doing_it_wrong()` (shown with `WP_DEBUG` on).
+- **Themes never outrank plugins.** Themes load after `plugins_loaded`. A theme's copy is used
+  only when no plugin bundles that package; otherwise it is ignored, even if newer.
+- **Copies of the same version register once.** The first one wins.
 
 There is nothing for a consuming plugin author to do. This package is a transitive dependency,
 its bootstrap runs from Composer's `files` autoload, and registration happens automatically when
@@ -50,7 +62,8 @@ if (class_exists(Registry::class, false)) {
 }
 ```
 
-Keep this file at your package root, **outside your PSR-4 root**. A registration file reachable through your own
+`package` must be the package's Composer name exactly; the registry uses it to find the
+`files` id. Keep this file at your package root, **outside your PSR-4 root**. A registration file reachable through your own
 package's namespace prefix makes the coordinator resolve a class name back onto it.
 
 ### Booting is not this package's job
@@ -61,8 +74,10 @@ resolves that class name through this autoloader, which hands back the newest re
 Controlling resolution *is* controlling the boot.
 
 The one thing to avoid is touching package classes at plugin-file-load time, before every
-bundling plugin has registered — the first copy to resolve is pinned for the request. Use any
-hook (`plugins_loaded`, `init`, anything later) and all copies will have registered by then.
+bundling plugin has registered — the first copy to resolve is pinned for the request, and the
+registry raises `_doing_it_wrong()`. Use any hook (`plugins_loaded`, `init`, anything later) and
+all copies will have registered by then. A theme can use package classes as soon as its
+`functions.php` runs, since `plugins_loaded` has already fired.
 
 ### Global functions
 
@@ -95,7 +110,13 @@ $registry->candidates('acme/widgets');  // every registered copy: root path => v
 **A class loaded before every bundler has registered pins that version for the request.** Mixing
 two copies' classes is worse than consistently running an older one, so the pin holds even if a
 newer copy registers later. Don't touch package classes at plugin-file-load time; wait for
-`plugins_loaded`.
+`plugins_loaded`. The registry reports early loads through `_doing_it_wrong()`.
+
+**A theme can't ship a newer copy than its plugins.** Like Action Scheduler, a theme's copy is
+ignored whenever a plugin bundles the same package.
+
+**Global functions come from the first copy.** `inc/public-api.php`-style `files` entries are
+declared once, by whichever copy loads first; keep them as forwarders (above).
 
 **Coordination only covers participating packages.** A third-party plugin bundling the same
 package without this loader registers its own Composer autoloader, and resolution between the
@@ -111,6 +132,10 @@ additive-only; anything incompatible must ship under a new class name.
 composer test
 ```
 
+`tests/ComposerCopiesTest.php` runs real `composer install`s of a fixture package bundled at two
+versions, then loads them in each order in a fresh PHP process. It needs Composer: set
+`COMPOSER_BINARY`, or have it in `vendor/bin` or on `PATH`.
+
 ## License
 
-MIT
+GPL-2.0-or-later
