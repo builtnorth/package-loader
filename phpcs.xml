@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<ruleset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="Novalis Package Loader" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/squizlabs/PHP_CodeSniffer/master/phpcs.xsd">
-	<description>Novalis Package Loader coding standards</description>
+<ruleset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="Navas Package Loader" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/squizlabs/PHP_CodeSniffer/master/phpcs.xsd">
+	<description>Navas Package Loader coding standards</description>
 
 	<file>package-loader.php</file>
 	<exclude-pattern>*/vendor/*</exclude-pattern>
