@@ -115,6 +115,11 @@ newer copy registers later. Don't touch package classes at plugin-file-load time
 **A theme can't ship a newer copy than its plugins.** Like Action Scheduler, a theme's copy is
 ignored whenever a plugin bundles the same package.
 
+**Each package resolves on its own.** The newest copy is picked per package, not per plugin. If
+plugin A bundles the newest `acme/widgets` and plugin B bundles the newest `acme/http`, the
+request runs A's widgets against B's http. Declare real version constraints between packages
+that depend on each other, so every combination a bundle can produce is one Composer allowed.
+
 **Global functions come from the first copy.** `inc/public-api.php`-style `files` entries are
 declared once, by whichever copy loads first; keep them as forwarders (above).
 
