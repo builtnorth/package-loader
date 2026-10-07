@@ -1,11 +1,15 @@
 <?php
 /**
- * Novalis Package Loader — version coordinator for bundled packages.
+ * Navas Package Loader — version coordinator for bundled packages.
  *
  * Loaded eagerly via composer's `files` autoload, so every plugin that vendors
  * a participating package runs this with no action on the plugin author's part.
- * Several copies of this file will run in one request; the first one to do so
- * declares the Registry and the rest defer to it.
+ * The first copy to run declares the Registry and every later copy defers to it.
+ *
+ * Modelled on Action Scheduler's ActionScheduler_Versions: every bundled copy
+ * registers while plugin files load, the newest wins once plugins_loaded
+ * fires, and a theme's copy (themes load after plugins_loaded) is used only
+ * when no plugin bundles that package.
  *
  * @package Navas\PackageLoader
  */
@@ -83,15 +87,43 @@ if (! class_exists('Navas\PackageLoader\Registry', false)) {
 		public function register(array $args): void
 		{
 			$package = $args['package'] ?? '';
-			$root    = $args['root'] ?? '';
+			$root    = rtrim($args['root'] ?? '', '/\\');
 
 			if ('' === $package || '' === $root) {
 				return;
 			}
 
+			// Composer ids a `files` entry by md5("<package>:<path>"), which is
+			// the same for every plugin's copy, and skips an id it has already
+			// run. Clearing it lets the next bundler's register.php run too.
+			// Requires `package` to be the Composer package name.
+			unset($GLOBALS['__composer_autoload_files'][md5($package . ':register.php')]);
+
+			// Composer prepends each plugin's ClassLoader as it loads, so a
+			// bundler arriving after us would otherwise sit ahead in the SPL
+			// chain and resolve our namespaces itself. Done even for a copy
+			// ignored below: its ClassLoader is in the chain either way.
+			$this->install();
+
+			$version = (string) ($args['version'] ?? '0.0.0');
+
+			foreach ($this->candidates[$package] ?? [] as $candidate) {
+				// The same copy twice, or another copy of the same version.
+				if ($candidate['root'] === $root || $candidate['version'] === $version) {
+					return;
+				}
+			}
+
+			// Only themes register after plugins_loaded. Like Action
+			// Scheduler, a theme's copy is used only when no plugin bundles
+			// the package, never to outrank one.
+			if (self::plugins_loaded() && isset($this->candidates[$package])) {
+				return;
+			}
+
 			$this->candidates[$package][] = [
-				'version' => (string) ($args['version'] ?? '0.0.0'),
-				'root'    => rtrim($root, '/\\'),
+				'version' => $version,
+				'root'    => $root,
 				'psr4'    => $args['psr4'] ?? [],
 			];
 
@@ -101,11 +133,6 @@ if (! class_exists('Navas\PackageLoader\Registry', false)) {
 					$this->segments[$segment][$package] = true;
 				}
 			}
-
-			// Composer prepends each plugin's ClassLoader as it loads, so a
-			// bundler arriving after us would otherwise sit ahead in the SPL
-			// chain and resolve our namespaces itself.
-			$this->install();
 		}
 
 		/**
@@ -162,6 +189,10 @@ if (! class_exists('Navas\PackageLoader\Registry', false)) {
 					. str_replace('\\', '/', $relative) . '.php';
 
 				if (is_file($file)) {
+					if (! isset($this->pinned[$package]) && ! self::plugins_loaded()) {
+						self::report_early_use($class, $package, $winner['version']);
+					}
+
 					// Pin before the require: anything the loaded file pulls in
 					// must resolve against this same copy.
 					$this->pinned[$package] = $winner['version'];
@@ -239,6 +270,38 @@ if (! class_exists('Navas\PackageLoader\Registry', false)) {
 			}
 
 			return $best;
+		}
+
+		/**
+		 * Whether WordPress has fired plugins_loaded, i.e. every plugin's copy
+		 * has registered. False outside WordPress (plain PHPUnit, wp-config).
+		 */
+		private static function plugins_loaded(): bool
+		{
+			return function_exists('did_action') && did_action('plugins_loaded') > 0;
+		}
+
+		/**
+		 * A class loaded while plugin files are still loading locks its package
+		 * to the newest copy registered so far; a plugin loading later with a
+		 * newer copy can't win. WordPress shows this only with WP_DEBUG on.
+		 */
+		private static function report_early_use(string $class, string $package, string $version): void
+		{
+			if (! function_exists('_doing_it_wrong')) {
+				return;
+			}
+
+			_doing_it_wrong(
+				$class,
+				sprintf(
+					'%1$s was loaded before plugins_loaded, so %2$s is locked to %3$s for this request even if a plugin loaded later bundles a newer copy. Use a hook instead of running package code while plugin files load.',
+					$class,
+					$package,
+					$version
+				),
+				'0.1.0'
+			);
 		}
 	}
 

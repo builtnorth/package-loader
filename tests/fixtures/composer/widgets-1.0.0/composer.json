@@ -1,0 +1,15 @@
+{
+	"name": "acme/widgets",
+	"version": "1.0.0",
+	"require": {
+		"navas/package-loader": "*"
+	},
+	"autoload": {
+		"psr-4": {
+			"Acme\\Widgets\\": "inc/classes/"
+		},
+		"files": [
+			"register.php"
+		]
+	}
+}
