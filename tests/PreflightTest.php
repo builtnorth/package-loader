@@ -32,9 +32,9 @@ final class PreflightTest extends TestCase
 	{
 		$dirs = siratik_package_loader_plugin_dirs(
 			[
-				'polaris-security/polaris-security.php',
-				'polaris-seo/polaris-seo.php',
-				'polaris-security/polaris-security.php',
+				'kitaris-security/kitaris-security.php',
+				'kitaris-seo/kitaris-seo.php',
+				'kitaris-security/kitaris-security.php',
 				'hello.php',
 				'../escape/x.php',
 				'/abs/x.php',
@@ -45,7 +45,7 @@ final class PreflightTest extends TestCase
 		);
 
 		$this->assertSame(
-			['/srv/wp-content/plugins/polaris-security', '/srv/wp-content/plugins/polaris-seo'],
+			['/srv/wp-content/plugins/kitaris-security', '/srv/wp-content/plugins/kitaris-seo'],
 			$dirs
 		);
 	}
