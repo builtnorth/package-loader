@@ -1,4 +1,4 @@
-# Navas Package Loader
+# Siratik Package Loader
 
 Version coordinator for WordPress packages that get bundled by more than one plugin.
 
@@ -14,7 +14,7 @@ Plugin authors cannot coordinate with each other, and they shouldn't have to.
 
 ## What this does
 
-Packages that depend on `navas/package-loader` get a shared registry. Each bundled copy
+Packages that depend on `siratik/package-loader` get a shared registry. Each bundled copy
 registers itself with its version; the registry puts its own autoloader at the front of the SPL
 chain and resolves classes from the **newest registered copy**, regardless of load order.
 
@@ -50,7 +50,7 @@ Then register from a `files`-autoloaded bootstrap:
 <?php
 // register.php — listed under autoload.files in composer.json
 
-use Navas\PackageLoader\Registry;
+use Siratik\PackageLoader\Registry;
 
 if (class_exists(Registry::class, false)) {
 	Registry::instance()->register([
@@ -103,14 +103,14 @@ get the newest copies by registering every active plugin's copy first:
 
 ```php
 // In the mu-plugin, from your own bundled copy:
-require WP_PLUGIN_DIR . '/my-plugin/vendor/navas/package-loader/preflight.php';
+require WP_PLUGIN_DIR . '/my-plugin/vendor/siratik/package-loader/preflight.php';
 
-if (navas_package_loader_preflight()) {
+if (siratik_package_loader_preflight()) {
 	// Package classes now resolve exactly as they will after plugins_loaded.
 }
 ```
 
-`navas_package_loader_preflight()` reads the active plugins (`active_plugins`, plus
+`siratik_package_loader_preflight()` reads the active plugins (`active_plugins`, plus
 `active_sitewide_plugins` on multisite), loads the newest package-loader copy among them, then
 includes each bundled package's `register.php`, found through the plugin's
 `vendor/composer/installed.php`. Those are data files only; no plugin code runs. When the plugins
@@ -126,7 +126,7 @@ on the next one, and a plugin WordPress has paused in recovery mode is still cou
 ## Diagnostics
 
 ```php
-$registry = \Navas\PackageLoader\Registry::instance();
+$registry = \Siratik\PackageLoader\Registry::instance();
 
 $registry->version('acme/widgets');     // version that won this request
 $registry->candidates('acme/widgets');  // every registered copy: root path => version

@@ -42,14 +42,14 @@ foreach (array_slice($argv, 2) as $step) {
 	}
 
 	if ($step === 'preflight-registered') {
-		\Navas\PackageLoader\Registry::instance()->preflight([]);
+		\Siratik\PackageLoader\Registry::instance()->preflight([]);
 		continue;
 	}
 
 	if (str_starts_with($step, 'preflight:')) {
 		$hosts = explode(',', substr($step, strlen('preflight:')));
-		require $workspace . '/' . $hosts[0] . '/vendor/navas/package-loader/preflight.php';
-		$GLOBALS['fixture_preflight'] = navas_package_loader_preflight(
+		require $workspace . '/' . $hosts[0] . '/vendor/siratik/package-loader/preflight.php';
+		$GLOBALS['fixture_preflight'] = siratik_package_loader_preflight(
 			array_map(static fn(string $host): string => $workspace . '/' . $host, $hosts)
 		);
 		continue;
@@ -58,7 +58,7 @@ foreach (array_slice($argv, 2) as $step) {
 	require $workspace . '/' . $step . '/vendor/autoload.php';
 }
 
-$registry = \Navas\PackageLoader\Registry::instance();
+$registry = \Siratik\PackageLoader\Registry::instance();
 $class    = new ReflectionClass('Acme\Widgets\Widget');
 
 echo json_encode([

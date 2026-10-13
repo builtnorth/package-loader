@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Navas\PackageLoader\Tests;
+namespace Siratik\PackageLoader\Tests;
 
-use Navas\PackageLoader\Registry;
+use Siratik\PackageLoader\Registry;
 use PHPUnit\Framework\TestCase;
 
 /**

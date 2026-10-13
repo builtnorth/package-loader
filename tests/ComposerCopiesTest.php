@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Navas\PackageLoader\Tests;
+namespace Siratik\PackageLoader\Tests;
 
 use PHPUnit\Framework\TestCase;
 
@@ -29,7 +29,7 @@ final class ComposerCopiesTest extends TestCase
 
 	public static function setUpBeforeClass(): void
 	{
-		self::$workspace = sys_get_temp_dir() . '/navas-package-loader-' . bin2hex(random_bytes(4));
+		self::$workspace = sys_get_temp_dir() . '/siratik-package-loader-' . bin2hex(random_bytes(4));
 		mkdir(self::$workspace);
 
 		foreach (self::HOSTS as $host => $version) {
@@ -191,13 +191,13 @@ final class ComposerCopiesTest extends TestCase
 				[
 					'type'    => 'path',
 					'url'     => dirname(__DIR__),
-					'options' => ['symlink' => false, 'versions' => ['navas/package-loader' => '0.1.0']],
+					'options' => ['symlink' => false, 'versions' => ['siratik/package-loader' => '0.1.0']],
 				],
 				['packagist.org' => false],
 			],
 			'require'           => [
 				'acme/widgets'         => $version,
-				'navas/package-loader' => '0.1.0',
+				'siratik/package-loader' => '0.1.0',
 			],
 			'minimum-stability' => 'dev',
 		];

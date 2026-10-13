@@ -1,5 +1,5 @@
 {
-    "name": "navas/package-loader",
+    "name": "siratik/package-loader",
     "description": "Version coordinator for bundled WordPress packages. Ensures the newest copy of a shared package wins when several plugins vendor their own.",
     "type": "library",
     "license": "GPL-2.0-or-later",
@@ -24,7 +24,7 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Navas\\PackageLoader\\Tests\\": "tests/"
+            "Siratik\\PackageLoader\\Tests\\": "tests/"
         }
     },
     "scripts": {

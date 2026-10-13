@@ -1,6 +1,6 @@
 <?php
 /**
- * Navas Package Loader — version coordinator for bundled packages.
+ * Siratik Package Loader — version coordinator for bundled packages.
  *
  * Loaded eagerly via composer's `files` autoload, so every plugin that vendors
  * a participating package runs this with no action on the plugin author's part.
@@ -11,19 +11,19 @@
  * fires, and a theme's copy (themes load after plugins_loaded) is used only
  * when no plugin bundles that package.
  *
- * @package Navas\PackageLoader
+ * @package Siratik\PackageLoader
  */
 
 declare(strict_types=1);
 
-namespace Navas\PackageLoader;
+namespace Siratik\PackageLoader;
 
 // Autoloading is deliberately disabled on this check. By the time a second
 // copy's `files` entry runs, another copy's PSR-4 rules may already be
 // registered, and an autoloading class_exists() would resolve Registry through
 // them — declaring nothing here while leaving the winner ambiguous. The same
 // form action-scheduler.php uses for ActionScheduler_Versions.
-if (! class_exists('Navas\PackageLoader\Registry', false)) {
+if (! class_exists('Siratik\PackageLoader\Registry', false)) {
 	/**
 	 * Resolves which bundled copy of a shared package a request should use.
 	 *

@@ -1,6 +1,6 @@
 <?php
 // Same shape as every real package's register.php.
-use Navas\PackageLoader\Registry;
+use Siratik\PackageLoader\Registry;
 
 if (class_exists(Registry::class, false)) {
 	Registry::instance()->register([

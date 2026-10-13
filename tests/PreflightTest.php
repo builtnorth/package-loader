@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Navas\PackageLoader\Tests;
+namespace Siratik\PackageLoader\Tests;
 
 use PHPUnit\Framework\TestCase;
 
@@ -30,7 +30,7 @@ final class PreflightTest extends TestCase
 
 	public function test_plugin_dirs_maps_basenames_and_skips_the_rest(): void
 	{
-		$dirs = navas_package_loader_plugin_dirs(
+		$dirs = siratik_package_loader_plugin_dirs(
 			[
 				'polaris-security/polaris-security.php',
 				'polaris-seo/polaris-seo.php',
@@ -52,27 +52,27 @@ final class PreflightTest extends TestCase
 
 	public function test_newest_copy_picks_the_highest_version(): void
 	{
-		$this->dir = sys_get_temp_dir() . '/navas-preflight-' . bin2hex(random_bytes(4));
+		$this->dir = sys_get_temp_dir() . '/siratik-preflight-' . bin2hex(random_bytes(4));
 		$own       = $this->copy('own', '0.1.0');
-		$this->copy('plugin-a/vendor/navas/package-loader', '0.3.0');
-		$this->copy('plugin-b/vendor/navas/package-loader', 'v0.2.0');
+		$this->copy('plugin-a/vendor/siratik/package-loader', '0.3.0');
+		$this->copy('plugin-b/vendor/siratik/package-loader', 'v0.2.0');
 		mkdir($this->dir . '/plugin-c');
 
-		$best = navas_package_loader_newest_copy(
+		$best = siratik_package_loader_newest_copy(
 			[$this->dir . '/plugin-b', $this->dir . '/plugin-a', $this->dir . '/plugin-c'],
 			$own
 		);
 
-		$this->assertSame($this->dir . '/plugin-a/vendor/navas/package-loader', $best);
+		$this->assertSame($this->dir . '/plugin-a/vendor/siratik/package-loader', $best);
 	}
 
 	public function test_newest_copy_falls_back_to_the_callers_copy(): void
 	{
-		$this->dir = sys_get_temp_dir() . '/navas-preflight-' . bin2hex(random_bytes(4));
+		$this->dir = sys_get_temp_dir() . '/siratik-preflight-' . bin2hex(random_bytes(4));
 		$own       = $this->copy('own', '0.2.0');
-		$this->copy('plugin-a/vendor/navas/package-loader', '0.1.0');
+		$this->copy('plugin-a/vendor/siratik/package-loader', '0.1.0');
 
-		$this->assertSame($own, navas_package_loader_newest_copy([$this->dir . '/plugin-a', $this->dir . '/missing'], $own));
+		$this->assertSame($own, siratik_package_loader_newest_copy([$this->dir . '/plugin-a', $this->dir . '/missing'], $own));
 	}
 
 	private function copy(string $relative, string $version): string
