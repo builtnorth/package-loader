@@ -33,7 +33,7 @@
         "test:coverage": "phpunit --coverage-html coverage",
         "lint": "phpcs",
         "lint:fix": "phpcbf",
-        "phpcompat": "phpcs -p . --standard=PHPCompatibility --runtime-set testVersion 8.1-"
+        "phpcompat": "phpcs -p . --standard=PHPCompatibility --runtime-set testVersion 8.1- --extensions=php --ignore=vendor,tests,coverage"
     },
     "config": {
         "optimize-autoloader": true,
