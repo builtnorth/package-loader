@@ -96,6 +96,33 @@ if (! function_exists('acme_widgets_render')) {
 Always guard declarations with `function_exists`. An unguarded declaration is a fatal redeclare
 error the moment a second plugin bundles your package.
 
+## Running before plugins_loaded
+
+Code that must run before regular plugins load (an mu-plugin — a firewall, for example) can still
+get the newest copies by registering every active plugin's copy first:
+
+```php
+// In the mu-plugin, from your own bundled copy:
+require WP_PLUGIN_DIR . '/my-plugin/vendor/navas/package-loader/preflight.php';
+
+if (navas_package_loader_preflight()) {
+	// Package classes now resolve exactly as they will after plugins_loaded.
+}
+```
+
+`navas_package_loader_preflight()` reads the active plugins (`active_plugins`, plus
+`active_sitewide_plugins` on multisite), loads the newest package-loader copy among them, then
+includes each bundled package's `register.php`, found through the plugin's
+`vendor/composer/installed.php`. Those are data files only; no plugin code runs. When the plugins
+load later, their registrations are ignored as already seen. Early use of a preflighted package
+raises no `_doing_it_wrong()`.
+
+It returns `false` when an older Registry without `preflight()` already owns the request; don't
+use package classes early in that case.
+
+Trade-offs, the same ones Jetpack's autoloader makes: a plugin activated during the request joins
+on the next one, and a plugin WordPress has paused in recovery mode is still counted.
+
 ## Diagnostics
 
 ```php
@@ -110,7 +137,8 @@ $registry->candidates('acme/widgets');  // every registered copy: root path => v
 **A class loaded before every bundler has registered pins that version for the request.** Mixing
 two copies' classes is worse than consistently running an older one, so the pin holds even if a
 newer copy registers later. Don't touch package classes at plugin-file-load time; wait for
-`plugins_loaded`. The registry reports early loads through `_doing_it_wrong()`.
+`plugins_loaded`. The registry reports early loads through `_doing_it_wrong()`. Code that has to run earlier can use the
+[preflight](#running-before-plugins_loaded).
 
 **A theme can't ship a newer copy than its plugins.** Like Action Scheduler, a theme's copy is
 ignored whenever a plugin bundles the same package.

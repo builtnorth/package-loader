@@ -100,8 +100,64 @@ final class ComposerCopiesTest extends TestCase
 		$this->assertSame([], $result['notices']);
 	}
 
+	public function test_preflight_lets_early_use_resolve_the_newest_copy(): void
+	{
+		$result = $this->run_steps('preflight:plugin-a,plugin-b', 'use', 'plugin-a', 'plugin-b', 'plugins_loaded');
+
+		$this->assertTrue($result['preflight']);
+		$this->assertSame('2.0.0', $result['used'], 'The early use must already get the newest copy.');
+		$this->assertSame('2.0.0', $result['loaded']);
+		$this->assertSame('plugin-b', $result['loaded_by']);
+		$this->assertSame('2.0.0', $result['version']);
+		$this->assertSame([], $result['notices'], 'Early use after a preflight is expected, not a mistake.');
+	}
+
+	public function test_plugins_loading_after_a_preflight_register_nothing_new(): void
+	{
+		$result = $this->run_steps('preflight:plugin-a,plugin-b,plugin-c', 'plugin-a', 'plugin-b', 'plugin-c', 'plugins_loaded');
+
+		$this->assertSame(['1.0.0', '2.0.0'], $result['candidates']);
+		$this->assertSame('2.0.0', $result['loaded']);
+	}
+
 	/**
-	 * @return array{loaded: string, loaded_by: string, version: ?string, candidates: list<string>, notices: list<string>}
+	 * A project-wide autoloader (wp-config.php) has registered every copy
+	 * before WordPress loads; a preflight over no directories just marks
+	 * them, so early use is not reported.
+	 */
+	public function test_preflight_with_no_directories_covers_copies_already_registered(): void
+	{
+		$result = $this->run_steps('plugin-a', 'plugin-b', 'preflight-registered', 'use', 'plugins_loaded');
+
+		$this->assertSame('2.0.0', $result['used']);
+		$this->assertSame([], $result['notices']);
+	}
+
+	public function test_preflight_skips_a_directory_without_vendor(): void
+	{
+		$result = $this->run_steps('preflight:plugin-a,no-such-plugin', 'use', 'plugin-a', 'plugins_loaded');
+
+		$this->assertTrue($result['preflight']);
+		$this->assertSame('1.0.0', $result['used']);
+		$this->assertSame('1.0.0', $result['loaded']);
+		$this->assertSame([], $result['notices']);
+	}
+
+	/**
+	 * A plugin left out of the preflight (activated mid-request) can't
+	 * outrank the pin — the same trade-off as without a preflight.
+	 */
+	public function test_copy_missing_from_the_preflight_cannot_outrank_the_pin(): void
+	{
+		$result = $this->run_steps('preflight:plugin-a', 'use', 'plugin-a', 'plugin-b', 'plugins_loaded');
+
+		$this->assertSame('1.0.0', $result['used']);
+		$this->assertSame('1.0.0', $result['loaded']);
+		$this->assertSame('1.0.0', $result['version']);
+	}
+
+	/**
+	 * @return array{loaded: string, loaded_by: string, version: ?string, candidates: list<string>, notices: list<string>, preflight: ?bool, used: ?string}
 	 */
 	private function run_steps(string ...$steps): array
 	{

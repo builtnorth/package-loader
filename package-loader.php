@@ -39,7 +39,7 @@ if (! class_exists('Navas\PackageLoader\Registry', false)) {
 		 * Public surface version, for packages that need to detect a Registry
 		 * older than the features they rely on and fall back gracefully.
 		 */
-		public const API_VERSION = 1;
+		public const API_VERSION = 2;
 
 		private static ?Registry $instance = null;
 
@@ -66,6 +66,13 @@ if (! class_exists('Navas\PackageLoader\Registry', false)) {
 		 * @var array<string, array<string, true>>
 		 */
 		private array $segments = [];
+
+		/**
+		 * Packages registered by preflight(), whose early use is expected.
+		 *
+		 * @var array<string, true>
+		 */
+		private array $preflighted = [];
 
 		private function __construct()
 		{
@@ -136,6 +143,70 @@ if (! class_exists('Navas\PackageLoader\Registry', false)) {
 		}
 
 		/**
+		 * Register every bundled copy in the given plugin directories now,
+		 * before those plugins load.
+		 *
+		 * For code that must run before plugins_loaded (an mu-plugin): with
+		 * every active plugin's copy registered up front, the newest copy
+		 * wins exactly as it would once plugins_loaded fires, so using a
+		 * package early no longer locks in an older one. Reads each plugin's
+		 * vendor/composer/installed.php (Composer's own data file) to find
+		 * its packages and includes their register.php — the same file
+		 * Composer runs when the plugin loads — so no plugin code runs.
+		 * When the plugins load later, register() ignores the roots it has
+		 * already seen.
+		 *
+		 * Every package registered by the time it returns counts as
+		 * preflighted, including copies registered before the call (a
+		 * project-wide autoloader loaded from wp-config.php registers every
+		 * copy up front; pass no directories in that case). Early use of a
+		 * preflighted package raises no _doing_it_wrong().
+		 *
+		 * Added in API_VERSION 2.
+		 *
+		 * @param list<string> $plugin_dirs Absolute plugin directories.
+		 */
+		public function preflight(array $plugin_dirs): void
+		{
+			foreach ($plugin_dirs as $dir) {
+				if (! is_string($dir) || '' === $dir) {
+					continue;
+				}
+
+				$installed_file = rtrim($dir, '/\\') . '/vendor/composer/installed.php';
+				if (! is_file($installed_file)) {
+					continue;
+				}
+
+				$installed = require $installed_file;
+				$packages  = is_array($installed) && is_array($installed['versions'] ?? null)
+					? $installed['versions']
+					: [];
+
+				foreach ($packages as $name => $info) {
+					$path = is_array($info) && is_string($info['install_path'] ?? null) ? $info['install_path'] : '';
+					if ('' === $path || ! is_file($path . '/register.php')) {
+						continue;
+					}
+
+					self::include_registration($path . '/register.php');
+				}
+			}
+
+			foreach (array_keys($this->candidates) as $package) {
+				$this->preflighted[$package] = true;
+			}
+		}
+
+		/**
+		 * Run a package's register.php in its own scope.
+		 */
+		private static function include_registration(string $file): void
+		{
+			include $file;
+		}
+
+		/**
 		 * Put this Registry's autoloader at the front of the SPL chain.
 		 *
 		 * Safe to call repeatedly — every register() does, because composer
@@ -189,7 +260,11 @@ if (! class_exists('Navas\PackageLoader\Registry', false)) {
 					. str_replace('\\', '/', $relative) . '.php';
 
 				if (is_file($file)) {
-					if (! isset($this->pinned[$package]) && ! self::plugins_loaded()) {
+					if (
+						! isset($this->pinned[$package])
+						&& ! isset($this->preflighted[$package])
+						&& ! self::plugins_loaded()
+					) {
 						self::report_early_use($class, $package, $winner['version']);
 					}
 
