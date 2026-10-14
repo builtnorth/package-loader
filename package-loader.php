@@ -380,6 +380,7 @@ if (! class_exists('Siratik\PackageLoader\Registry', false)) {
 				return;
 			}
 
+			// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- class, package and version are internal identifiers, not user input.
 			_doing_it_wrong(
 				$class,
 				sprintf(
@@ -390,6 +391,7 @@ if (! class_exists('Siratik\PackageLoader\Registry', false)) {
 				),
 				'0.1.0'
 			);
+			// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
 		}
 
 		/**
