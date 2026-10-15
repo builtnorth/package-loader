@@ -34,7 +34,7 @@ final class RegistryTest extends TestCase
 		$registry   = Registry::instance();
 		$reflection = new \ReflectionClass($registry);
 
-		foreach (['candidates', 'pinned', 'segments'] as $property) {
+		foreach (['candidates', 'pinned', 'segments', 'prefixes'] as $property) {
 			$prop = $reflection->getProperty($property);
 			$prop->setAccessible(true);
 			$prop->setValue($registry, []);
@@ -191,5 +191,83 @@ final class RegistryTest extends TestCase
 
 		$this->assertSame('new', \Acme\Demo\Widget::which());
 	}
-}
 
+	public function test_class_name_with_path_characters_is_not_loaded(): void
+	{
+		$this->register('old', self::OLD);
+
+		// Called directly: PHP itself rejects most such names before any
+		// autoloader runs, and the guard must not depend on that.
+		Registry::instance()->autoload('Acme\\Demo\\../../../new/inc/classes/Widget');
+
+		$this->assertFalse(class_exists('Acme\\Demo\\Widget', false));
+	}
+
+	/**
+	 * Stand in for WordPress: hook globals, WP_DEBUG and _doing_it_wrong().
+	 */
+	private function fake_wordpress(bool $debug): void
+	{
+		$GLOBALS['wp_actions']      = [];
+		$GLOBALS['fixture_notices'] = [];
+		define('WP_DEBUG', $debug);
+		eval('function _doing_it_wrong($f, $m, $v) { $GLOBALS["fixture_notices"][] = $m; }');
+	}
+
+	public function test_same_version_with_different_files_is_reported(): void
+	{
+		$this->fake_wordpress(true);
+
+		$this->register('old', self::OLD);
+		$this->register('new', self::OLD);
+
+		$this->assertCount(1, $GLOBALS['fixture_notices']);
+		$this->assertStringContainsString('different files', $GLOBALS['fixture_notices'][0]);
+		// The first copy still wins.
+		$this->assertSame('old', \Acme\Demo\Widget::which());
+	}
+
+	public function test_same_version_with_identical_files_is_not_reported(): void
+	{
+		$this->fake_wordpress(true);
+
+		$this->register('old', self::OLD);
+		$this->register('../fixtures/old', self::OLD);
+
+		$this->assertSame([], $GLOBALS['fixture_notices']);
+	}
+
+	public function test_same_version_is_not_reported_without_wp_debug(): void
+	{
+		$this->fake_wordpress(false);
+
+		$this->register('old', self::OLD);
+		$this->register('new', self::OLD);
+
+		$this->assertSame([], $GLOBALS['fixture_notices']);
+	}
+
+	public function test_prefix_claimed_by_another_package_is_reported(): void
+	{
+		$this->fake_wordpress(true);
+
+		$this->register('old', self::OLD);
+		$this->register('new', self::NEW, ['package' => 'acme/fork']);
+
+		$this->assertCount(1, $GLOBALS['fixture_notices']);
+		$this->assertStringContainsString('acme/fork', $GLOBALS['fixture_notices'][0]);
+		$this->assertStringContainsString('acme/demo', $GLOBALS['fixture_notices'][0]);
+		// Resolution is unchanged: the first package registered serves it.
+		$this->assertSame('old', \Acme\Demo\Widget::which());
+	}
+
+	public function test_prefix_claimed_by_another_package_is_not_reported_without_wp_debug(): void
+	{
+		$this->fake_wordpress(false);
+
+		$this->register('old', self::OLD);
+		$this->register('new', self::NEW, ['package' => 'acme/fork']);
+
+		$this->assertSame([], $GLOBALS['fixture_notices']);
+	}
+}

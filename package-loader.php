@@ -74,6 +74,13 @@ if (! class_exists('Siratik\PackageLoader\Registry', false)) {
 		 */
 		private array $preflighted = [];
 
+		/**
+		 * PSR-4 prefix => first package name that declared it.
+		 *
+		 * @var array<string, string>
+		 */
+		private array $prefixes = [];
+
 		private function __construct()
 		{
 		}
@@ -114,9 +121,31 @@ if (! class_exists('Siratik\PackageLoader\Registry', false)) {
 
 			$version = self::normalize_version((string) ($args['version'] ?? ''));
 
+			$psr4 = $args['psr4'] ?? [];
+
 			foreach ($this->candidates[$package] ?? [] as $candidate) {
-				// The same copy twice, or another copy of the same version.
-				if ($candidate['root'] === $root || $candidate['version'] === $version) {
+				// The same copy twice.
+				if ($candidate['root'] === $root) {
+					return;
+				}
+
+				// Another copy of the same version: the first one registered
+				// keeps serving. Every plugin bundling a package normally has
+				// an identical copy, so only copies whose files differ (a fix
+				// shipped without a version bump, a fork) are reported.
+				if ($candidate['version'] === $version) {
+					if (self::debug_notices() && self::fingerprint($candidate['root'], $candidate['psr4']) !== self::fingerprint($root, $psr4)) {
+						self::report(
+							sprintf(
+								'%1$s %2$s is bundled at %3$s and at %4$s with different files. The copy at %3$s is used. Bump the version of the changed copy.',
+								$package,
+								$version,
+								$candidate['root'],
+								$root
+							)
+						);
+					}
+
 					return;
 				}
 			}
@@ -131,10 +160,27 @@ if (! class_exists('Siratik\PackageLoader\Registry', false)) {
 			$this->candidates[$package][] = [
 				'version' => $version,
 				'root'    => $root,
-				'psr4'    => $args['psr4'] ?? [],
+				'psr4'    => $psr4,
 			];
 
-			foreach (array_keys($args['psr4'] ?? []) as $prefix) {
+			foreach (array_keys($psr4) as $prefix) {
+				// Two package names claiming one prefix resolve by
+				// registration order. Resolution is unchanged; the clash is
+				// reported so a renamed or forked package can be cleaned up.
+				$owner = $this->prefixes[$prefix] ?? null;
+				if (null === $owner) {
+					$this->prefixes[$prefix] = $package;
+				} elseif ($owner !== $package && self::debug_notices()) {
+					self::report(
+						sprintf(
+							'%1$s declares the namespace prefix %2$s, which %3$s already declares. Classes under it resolve from whichever package registered first.',
+							$package,
+							$prefix,
+							$owner
+						)
+					);
+				}
+
 				$segment = strstr($prefix, '\\', true);
 				if (false !== $segment) {
 					$this->segments[$segment][$package] = true;
@@ -226,6 +272,13 @@ if (! class_exists('Siratik\PackageLoader\Registry', false)) {
 			$segment = strstr($class, '\\', true);
 
 			if (false === $segment || ! isset($this->segments[$segment])) {
+				return;
+			}
+
+			// The class name becomes a file path below, so allow only the
+			// characters our packages' class names use. PHP rejects most bad
+			// names before calling an autoloader; this does not rely on it.
+			if (1 !== preg_match('/^[A-Za-z0-9_\\\\]+$/', $class)) {
 				return;
 			}
 
@@ -392,6 +445,63 @@ if (! class_exists('Siratik\PackageLoader\Registry', false)) {
 				'0.1.0'
 			);
 			// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+		}
+
+		/**
+		 * Whether to report registration problems: WordPress is loading and
+		 * WP_DEBUG is on.
+		 */
+		private static function debug_notices(): bool
+		{
+			return self::wordpress_loading() && defined('WP_DEBUG') && WP_DEBUG;
+		}
+
+		/**
+		 * Report a registration problem through _doing_it_wrong().
+		 */
+		private static function report(string $message): void
+		{
+			// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- package names, prefixes, versions and paths are internal identifiers, not user input.
+			_doing_it_wrong(__CLASS__ . '::register', $message, '0.1.0');
+			// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+		}
+
+		/**
+		 * Cheap fingerprint of a copy's class files: relative path and size
+		 * of every file under its PSR-4 directories. Only computed with
+		 * WP_DEBUG on, when two copies share a version.
+		 *
+		 * @param array<string, string> $psr4
+		 */
+		private static function fingerprint(string $root, array $psr4): string
+		{
+			$files = [];
+
+			foreach ($psr4 as $dir) {
+				$base = $root . '/' . trim($dir, '/\\');
+				if (! is_dir($base)) {
+					continue;
+				}
+
+				$iterator = new \RecursiveIteratorIterator(
+					new \RecursiveDirectoryIterator($base, \FilesystemIterator::SKIP_DOTS)
+				);
+
+				foreach ($iterator as $file) {
+					if ($file instanceof \SplFileInfo && $file->isFile()) {
+						$files[substr($file->getPathname(), strlen($root))] = $file->getSize();
+					}
+				}
+			}
+
+			ksort($files);
+
+			$list = '';
+			foreach ($files as $path => $size) {
+				$list .= $path . ':' . $size . "\n";
+			}
+
+			return md5($list);
 		}
 
 		/**
