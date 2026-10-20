@@ -177,8 +177,9 @@ GPL-3.0-or-later — see `LICENSE`.
 
 This software is provided "as is", without warranty of any kind, express or
 implied, including the warranties of merchantability and fitness for a
-particular purpose. To the extent permitted by applicable law, Built North LLC
-(Kitaris) and its contributors are not liable for any direct, indirect,
+particular purpose. To the extent permitted by applicable law, the authors and
+copyright holders, together with their parent, subsidiary, and affiliated
+companies and contributors, are not liable for any direct, indirect,
 incidental, or consequential damages arising from its use or inability to use
 it, including loss of data, revenue, or site availability.
 
