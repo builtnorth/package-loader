@@ -171,4 +171,4 @@ versions, then loads them in each order in a fresh PHP process. It needs Compose
 
 ## License
 
-GPL-2.0-or-later
+GPL-3.0-or-later — see `LICENSE`.

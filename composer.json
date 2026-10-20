@@ -2,7 +2,7 @@
     "name": "siratik/package-loader",
     "description": "Version coordinator for bundled WordPress packages. Ensures the newest copy of a shared package wins when several plugins vendor their own.",
     "type": "library",
-    "license": "GPL-2.0-or-later",
+    "license": "GPL-3.0-or-later",
     "authors": [
         {
             "name": "Built North",
