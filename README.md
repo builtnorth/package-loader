@@ -172,3 +172,22 @@ versions, then loads them in each order in a fresh PHP process. It needs Compose
 ## License
 
 GPL-3.0-or-later — see `LICENSE`.
+
+## Disclaimer
+
+This software is provided "as is", without warranty of any kind, express or
+implied, including the warranties of merchantability and fitness for a
+particular purpose. To the extent permitted by applicable law, Built North LLC
+(Kitaris) and its contributors are not liable for any direct, indirect,
+incidental, or consequential damages arising from its use or inability to use
+it, including loss of data, revenue, or site availability.
+
+The software does not guarantee that your site is secure, ranks in search
+results, or complies with privacy or other laws; that remains the site owner's
+responsibility. AI-generated content can be inaccurate and should be reviewed
+before publishing. Third-party services the software connects to are governed
+by their own terms.
+
+Keep a current backup and test changes on a staging site before applying them
+to a live site. See sections 15 and 16 of the GNU General Public License,
+version 3, for the full terms.
