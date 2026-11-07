@@ -10,7 +10,7 @@
         }
     ],
     "require": {
-        "php": ">=8.2"
+        "php": ">=8.1"
     },
     "require-dev": {
         "builtnorth/coding-standards": "^1.0",
@@ -33,7 +33,7 @@
         "test:coverage": "phpunit --coverage-html coverage",
         "lint": "phpcs",
         "lint:fix": "phpcbf",
-        "phpcompat": "phpcs -p . --standard=PHPCompatibility --runtime-set testVersion 8.2- --extensions=php --ignore=vendor,tests,coverage"
+        "phpcompat": "phpcs -p . --standard=PHPCompatibility --runtime-set testVersion 8.1- --extensions=php --ignore=vendor,tests,coverage"
     },
     "config": {
         "optimize-autoloader": true,
