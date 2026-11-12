@@ -8,4 +8,4 @@
  * @package Siratik\PackageLoader
  */
 
-return '0.1.3';
+return '0.1.4';
